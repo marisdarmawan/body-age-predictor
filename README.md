@@ -1,74 +1,3 @@
-# 🤖 Prediktor Usia Tubuh (Body Age Predictor)
-
-Proyek ini menggunakan model *machine learning* untuk memprediksi "usia tubuh" seseorang berdasarkan berbagai faktor kesehatan dan gaya hidup. Aplikasi ini dibangun menggunakan notebook Jupyter dan di-deploy sebagai aplikasi web interaktif dengan Streamlit.
-
----
-
-## ✨ Fitur
-
-* **Prediksi Usia**: Memberikan estimasi usia tubuh berdasarkan data input.
-* **Analisis Data Komprehensif**: Melakukan pembersihan data, rekayasa fitur, dan visualisasi untuk memahami hubungan antar variabel.
-* **Model Regresi**: Menggunakan `RandomForestRegressor` untuk tugas prediksi.
-* **Antarmuka Web**: Disediakan file `app.py` untuk deployment menggunakan Streamlit, memungkinkan interaksi pengguna yang mudah.
-* **Optimalisasi Model**: Termasuk proses tuning hyperparameter menggunakan `GridSearchCV` untuk meningkatkan akurasi model.
-
----
-
-## ⚙️ Alur Kerja Proyek
-
-1.  **Analisis & Pra-pemrosesan Data**:
-    * Dataset dimuat dan dieksplorasi untuk menemukan *insight* awal.
-    * **Rekayasa Fitur**: Kolom "Blood Pressure (s/d)" dipecah menjadi dua kolom terpisah: 'Systolic\_BP' dan 'Diastolic\_BP'.
-    * **Pembersihan Data**: Nilai yang hilang (*missing values*) pada fitur numerik diisi dengan median, sedangkan pada fitur kategorikal diisi dengan modus.
-    * **Encoding**: Fitur kategorikal seperti 'Gender' dan 'Smoking Status' diubah menjadi format numerik menggunakan `LabelEncoder`.
-    * **Penskalaan Fitur**: Seluruh fitur numerik dinormalisasi menggunakan `MinMaxScaler` untuk memastikan skala data yang seragam.
-
-2.  **Pembangunan Model**:
-    * Model `RandomForestRegressor` dipilih untuk tugas prediksi ini.
-    * Dilakukan *hyperparameter tuning* dengan `GridSearchCV` untuk menemukan kombinasi parameter terbaik, seperti `n_estimators`, `max_depth`, dan `min_samples_split`.
-    * Model dievaluasi menggunakan metrik *Mean Squared Error* (MSE) pada data validasi.
-
-3.  **Deployment**:
-    * Model terbaik, scaler, dan label encoder disimpan sebagai file `pkl`.
-    * File `app.py` disediakan untuk membuat aplikasi web interaktif di mana pengguna dapat memasukkan data mereka dan mendapatkan prediksi usia tubuh secara *real-time*.
-
----
-
-## 🚀 Cara Menjalankan Aplikasi Streamlit
-
-Untuk menjalankan aplikasi prediksi ini di komputer Anda, ikuti langkah-langkah berikut:
-
-1.  **Pastikan Semua File Ada**:
-    Simpan file-file berikut dalam satu direktori:
-    * `app.py` (file aplikasi Streamlit)
-    * `best_random_forest_model.pkl` (model yang telah dilatih)
-    * `scaler.pkl` (scaler yang telah di-fit)
-    * `label_encoders_dict.pkl` (encoder untuk variabel kategori)
-
-2.  **Buat File `requirements.txt`**:
-    Buat file bernama `requirements.txt` dan isi dengan library yang dibutuhkan:
-    ```txt
-    streamlit
-    pandas
-    numpy
-    scikit-learn
-    ```
-
-3.  **Instal Ketergantungan**:
-    Buka terminal atau command prompt, navigasi ke direktori proyek, dan jalankan:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Jalankan Aplikasi**:
-    Di terminal yang sama, jalankan perintah berikut:
-    ```bash
-    streamlit run app.py
-    ```
-    Aplikasi web akan otomatis terbuka di browser Anda.
-
----
-
 # 🤖 Body Age Predictor
 
 This project uses a *machine learning* model to predict a person's "body age" based on various health and lifestyle factors. The application is built using a Jupyter notebook and deployed as an interactive web app with Streamlit.
@@ -139,3 +68,72 @@ To run this prediction application on your local machine, follow these steps:
     The web application will automatically open in your default browser.
 
 ---
+
+# 🤖 Prediktor Usia Tubuh (Body Age Predictor)
+
+Proyek ini menggunakan model *machine learning* untuk memprediksi "usia tubuh" seseorang berdasarkan berbagai faktor kesehatan dan gaya hidup. Aplikasi ini dibangun menggunakan notebook Jupyter dan di-deploy sebagai aplikasi web interaktif dengan Streamlit.
+
+---
+
+## ✨ Fitur
+
+* **Prediksi Usia**: Memberikan estimasi usia tubuh berdasarkan data input.
+* **Analisis Data Komprehensif**: Melakukan pembersihan data, rekayasa fitur, dan visualisasi untuk memahami hubungan antar variabel.
+* **Model Regresi**: Menggunakan `RandomForestRegressor` untuk tugas prediksi.
+* **Antarmuka Web**: Disediakan file `app.py` untuk deployment menggunakan Streamlit, memungkinkan interaksi pengguna yang mudah.
+* **Optimalisasi Model**: Termasuk proses tuning hyperparameter menggunakan `GridSearchCV` untuk meningkatkan akurasi model.
+
+---
+
+## ⚙️ Alur Kerja Proyek
+
+1.  **Analisis & Pra-pemrosesan Data**:
+    * Dataset dimuat dan dieksplorasi untuk menemukan *insight* awal.
+    * **Rekayasa Fitur**: Kolom "Blood Pressure (s/d)" dipecah menjadi dua kolom terpisah: 'Systolic\_BP' dan 'Diastolic\_BP'.
+    * **Pembersihan Data**: Nilai yang hilang (*missing values*) pada fitur numerik diisi dengan median, sedangkan pada fitur kategorikal diisi dengan modus.
+    * **Encoding**: Fitur kategorikal seperti 'Gender' dan 'Smoking Status' diubah menjadi format numerik menggunakan `LabelEncoder`.
+    * **Penskalaan Fitur**: Seluruh fitur numerik dinormalisasi menggunakan `MinMaxScaler` untuk memastikan skala data yang seragam.
+
+2.  **Pembangunan Model**:
+    * Model `RandomForestRegressor` dipilih untuk tugas prediksi ini.
+    * Dilakukan *hyperparameter tuning* dengan `GridSearchCV` untuk menemukan kombinasi parameter terbaik, seperti `n_estimators`, `max_depth`, dan `min_samples_split`.
+    * Model dievaluasi menggunakan metrik *Mean Squared Error* (MSE) pada data validasi.
+
+3.  **Deployment**:
+    * Model terbaik, scaler, dan label encoder disimpan sebagai file `pkl`.
+    * File `app.py` disediakan untuk membuat aplikasi web interaktif di mana pengguna dapat memasukkan data mereka dan mendapatkan prediksi usia tubuh secara *real-time*.
+
+---
+
+## 🚀 Cara Menjalankan Aplikasi Streamlit
+
+Untuk menjalankan aplikasi prediksi ini di komputer Anda, ikuti langkah-langkah berikut:
+
+1.  **Pastikan Semua File Ada**:
+    Simpan file-file berikut dalam satu direktori:
+    * `app.py` (file aplikasi Streamlit)
+    * `best_random_forest_model.pkl` (model yang telah dilatih)
+    * `scaler.pkl` (scaler yang telah di-fit)
+    * `label_encoders_dict.pkl` (encoder untuk variabel kategori)
+
+2.  **Buat File `requirements.txt`**:
+    Buat file bernama `requirements.txt` dan isi dengan library yang dibutuhkan:
+    ```txt
+    streamlit
+    pandas
+    numpy
+    scikit-learn
+    ```
+
+3.  **Instal Ketergantungan**:
+    Buka terminal atau command prompt, navigasi ke direktori proyek, dan jalankan:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Jalankan Aplikasi**:
+    Di terminal yang sama, jalankan perintah berikut:
+    ```bash
+    streamlit run app.py
+    ```
+    Aplikasi web akan otomatis terbuka di browser Anda.
