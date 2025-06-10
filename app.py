@@ -1,107 +1,116 @@
 import streamlit as st
 import pandas as pd
-import pickle
 import numpy as np
+import pickle
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.ensemble import RandomForestRegressor
 
-# Load the saved model, scaler, and label encoders
-try:
-    with open('best_random_forest_model.pkl', 'rb') as f:
-        model = pickle.load(f)
-    with open('scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
-    with open('label_encoders_dict.pkl', 'rb') as f:
-        label_encoders_dict = pickle.load(f)
-except FileNotFoundError:
-    st.error("Model files not found. Please make sure 'best_random_forest_model.pkl', 'scaler.pkl', and 'label_encoders_dict.pkl' are in the same directory.")
-    st.stop()
+# --- FUNGSI UNTUK MEMUAT ARTIFAK ---
+# Menggunakan cache untuk meningkatkan performa.
+@st.cache_resource
+def load_artifacts():
+    """
+    Memuat model, scaler, dan label encoder yang telah disimpan dari file pickle.
+    """
+    try:
+        with open('best_random_forest_model.pkl', 'rb') as f_model:
+            model = pickle.load(f_model)
+        with open('scaler.pkl', 'rb') as f_scaler:
+            scaler = pickle.load(f_scaler)
+        with open('label_encoders_dict.pkl', 'rb') as f_le:
+            label_encoders = pickle.load(f_le)
+    except FileNotFoundError as e:
+        st.error(f"File artefak tidak ditemukan: {e}. Pastikan file .pkl berada di direktori yang sama.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat memuat artefak: {e}")
+        st.stop()
+    return model, scaler, label_encoders
 
-st.title("Human Age Prediction")
-st.write("Enter the features to predict the age.")
+# --- Memuat Artefak ---
+model, scaler, label_encoders = load_artifacts()
 
-# Create input fields for each feature
-st.sidebar.header("Feature Input")
+# --- Judul dan Deskripsi Aplikasi ---
+st.title("Prediktor Usia Tubuh (Body Age Predictor)")
+st.write("Masukkan fitur-fitur Anda di sidebar untuk memprediksi usia.")
 
-# Define the features and their types/options
-# You need to list all the features your model was trained on in the correct order
-# Refer to X.columns from your Colab notebook
-features = {
-    'Gender': ['Male', 'Female'],
-    'Height (cm)': 'number',
-    'Weight (kg)': 'number',
-    'Cholesterol Level (mg/dL)': 'number',
-    'BMI': 'number',
-    'Blood Glucose Level (mg/dL)': 'number',
-    'Bone Density (g/cm²)': 'number',
-    'Vision Sharpness': 'number',
-    'Hearing Ability (dB)': 'number',
-    'Physical Activity Level': ['Low', 'Moderate', 'High'],
-    'Smoking Status': ['Never', 'Former', 'Current'],
-    'Diet': ['Balanced', 'High Protein', 'Low Carb', 'Vegetarian', 'Mediterranean'], # Add other diet types if present
-    'Cognitive Function': 'number',
-    'Mental Health Status': ['Good', 'Poor', 'Average'], # Add other mental health statuses if present
-    'Sleep Patterns': ['Normal', 'Insomnia', 'Early Riser'], # Add other sleep patterns if present
-    'Stress Levels': 'number',
-    'Pollution Exposure': 'number',
-    'Sun Exposure': 'number',
-    'Income Level': ['Low', 'Medium', 'High'], # Add other income levels if present
-    'Systolic_BP': 'number',
-    'Diastolic_BP': 'number'
-}
+# --- Sidebar untuk Input Pengguna ---
+st.sidebar.header("Input Fitur")
 
-input_data = {}
-for feature, options in features.items():
-    if isinstance(options, list):
-        input_data[feature] = st.sidebar.selectbox(f"Select {feature}", options)
-    else:
-        input_data[feature] = st.sidebar.number_input(f"Enter {feature}", value=0.0) # Set a default value
+def user_input_features():
+    """
+    Membuat semua widget input dan mengembalikan input dalam bentuk DataFrame.
+    """
+    input_data = {}
+    
+    # Kumpulkan fitur kategori dan numerik sesuai notebook
+    categorical_features = ['Gender', 'Smoking Status', 'Sleep Patterns', 'Diet', 'Physical Activity Level', 'Income Level', 'Mental Health Status']
+    all_features_order = model.feature_names_in_ # Urutan fitur yang benar dari model
 
-# Preprocess the input data
-def preprocess_input(data, scaler, label_encoders):
-    df = pd.DataFrame([data])
+    # Buat input untuk setiap fitur
+    for feature in all_features_order:
+        if feature in categorical_features:
+            # Dapatkan opsi dari label encoder yang sudah di-fit
+            options = list(label_encoders[feature].classes_)
+            input_data[feature] = st.sidebar.selectbox(f"Pilih {feature}", options)
+        else: # Fitur numerik
+            # Berikan nilai default yang masuk akal
+            default_value = 0.0
+            if "BP" in feature or "Cholesterol" in feature or "Glucose" in feature:
+                default_value = 120.0
+            elif "Height" in feature:
+                default_value = 170.0
+            elif "Weight" in feature:
+                default_value = 70.0
+            elif "BMI" in feature:
+                default_value = 22.0
+            input_data[feature] = st.sidebar.number_input(f"Masukkan {feature}", value=default_value)
+            
+    return pd.DataFrame([input_data])
 
-    # Apply label encoding to categorical features
-    for feature, encoder in label_encoders.items():
-        if feature in df.columns:
-            # Handle potential unseen labels by using a try-except block or checking classes
+# Kumpulkan input dari pengguna
+input_df = user_input_features()
+
+# Tampilkan input pengguna (opsional)
+st.subheader("Input yang Anda Masukkan:")
+st.write(input_df)
+
+# --- Tombol Prediksi ---
+if st.sidebar.button("Prediksi Usia"):
+    
+    # 1. Buat salinan DataFrame input untuk diproses
+    processed_df = input_df.copy()
+
+    # 2. Encode fitur kategori
+    # Loop melalui semua fitur kategori yang didefinisikan di notebook
+    categorical_to_encode = ['Gender', 'Smoking Status', 'Sleep Patterns', 'Diet', 'Physical Activity Level', 'Income Level', 'Mental Health Status']
+    for feature in categorical_to_encode:
+        # Cek jika fitur ada di DataFrame sebelum melakukan transform
+        if feature in processed_df.columns:
             try:
-                 df[feature] = encoder.transform(df[feature])
-            except ValueError as e:
-                 st.warning(f"Could not encode feature '{feature}': {e}. This might be an unseen category.")
-                 # Handle unseen categories - you might need a strategy like using a default value
-                 # or raising an error depending on your data and requirements.
-                 # For simplicity here, we'll just print a warning and potentially leave it unencoded
-                 # which might cause errors later if the model expects encoded values.
-                 # A more robust approach would be to use OneHotEncoder with handle_unknown='ignore'
-                 # or map unseen values to a specific category.
-                 pass
+                le = label_encoders[feature]
+                processed_df[feature] = le.transform(processed_df[feature])
+            except ValueError:
+                st.error(f"Nilai untuk fitur '{feature}' tidak dikenali. Harap pilih dari opsi yang tersedia.")
+                st.stop()
 
+    # 3. PASTIKAN URUTAN KOLOM SUDAH BENAR
+    # Ini adalah langkah paling penting untuk memperbaiki error
+    try:
+        ordered_df = processed_df[model.feature_names_in_]
+    except KeyError as e:
+        st.error(f"Terjadi kesalahan urutan kolom: {e}. Pastikan semua fitur yang dibutuhkan ada.")
+        st.stop()
 
-    # Ensure the order of columns matches the training data
-    # This requires knowing the exact order of columns in your training data (X_train or X)
-    # You can get this from your Colab notebook: X.columns.tolist()
-    # For now, let's assume the order is the same as in the 'features' dictionary
-    ordered_columns = features.keys()
-    df = df[ordered_columns]
+    # 4. Skalakan semua fitur menggunakan scaler yang sama
+    scaled_input = scaler.transform(ordered_df)
 
+    # 5. Buat prediksi
+    prediction = model.predict(scaled_input)
 
-    # Scale the numerical features
-    # Identify numerical columns based on the features dictionary
-    numerical_features = [f for f, t in features.items() if t == 'number']
-    df[numerical_features] = scaler.transform(df[numerical_features])
-
-
-    return df
-
-# Predict button
-if st.sidebar.button("Predict Age"):
-    processed_input = preprocess_input(input_data, scaler, label_encoders_dict)
-
-    # Make prediction
-    prediction = model.predict(processed_input)
-
-    # Display the prediction
-    st.subheader("Prediction:")
-    st.success(f"The predicted age is: {prediction[0]:.2f} years")
+    # 6. Tampilkan hasil prediksi
+    st.subheader("Hasil Prediksi:")
+    st.success(f"Prediksi usia Anda adalah: {prediction[0]:.0f} tahun")
 
 st.markdown("---")
-st.write("This is a simple Streamlit application for age prediction.")
+st.write("Aplikasi Streamlit sederhana untuk prediksi usia.")
