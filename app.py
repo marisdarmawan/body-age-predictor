@@ -2,114 +2,65 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
-from sklearn.ensemble import RandomForestRegressor
 
-# --- FUNGSI UNTUK MEMUAT ARTIFAK ---
-# Menggunakan cache untuk memuat model, scaler, dan encoder hanya sekali.
-@st.cache_resource
-def load_artifacts():
-    """
-    Fungsi ini memuat model, scaler, dan label encoder yang telah disimpan dari file pickle.
-    """
+# Load model, scaler, and encoders
+with open('best_random_forest_model.pkl', 'rb') as f:
+    model = pickle.load(f)
+
+with open('scaler.pkl', 'rb') as f:
+    scaler = pickle.load(f)
+
+with open('label_encoders_dict.pkl', 'rb') as f:
+    label_encoders = pickle.load(f)
+
+st.set_page_config(page_title="Bode Age Predictor", layout="centered")
+
+st.title("🧠 Bode Age Predictor")
+st.write("Masukkan data untuk memprediksi usia berdasarkan indikator kesehatan.")
+
+# Daftar fitur kategorikal
+categorical_features = list(label_encoders.keys())
+
+# Buat form input
+with st.form("user_input_form"):
+    user_input = {}
+
+    # Input fitur kategorikal
+    for col in categorical_features:
+        options = label_encoders[col].classes_
+        user_input[col] = st.selectbox(f"{col}", options)
+
+    # Input fitur numerik
+    numeric_features = [
+        'Height (cm)', 'Weight (kg)', 'Cholesterol Level (mg/dL)',
+        'BMI', 'Blood Glucose Level (mg/dL)', 'Bone Density (g/cm²)',
+        'Vision Sharpness', 'Hearing Ability (dB)',
+        'Systolic_BP', 'Diastolic_BP'
+    ]
+    for col in numeric_features:
+        user_input[col] = st.number_input(f"{col}", value=0.0)
+
+    submitted = st.form_submit_button("Prediksi Usia")
+
+if submitted:
     try:
-        with open('best_random_forest_model.pkl', 'rb') as f_model:
-            model = pickle.load(f_model)
-        with open('scaler.pkl', 'rb') as f_scaler:
-            scaler = pickle.load(f_scaler)
-        with open('label_encoders_dict.pkl', 'rb') as f_le:
-            label_encoders = pickle.load(f_le)
-    except FileNotFoundError:
-        st.error("File model atau artefak tidak ditemukan. Pastikan file 'best_random_forest_model.pkl', 'scaler.pkl', dan 'label_encoders_dict.pkl' berada di direktori yang sama dengan app.py.")
-        st.stop()
-    return model, scaler, label_encoders
+        # Convert input ke DataFrame
+        input_df = pd.DataFrame([user_input])
 
-# --- MEMUAT MODEL, SCALER, DAN ENCODER ---
-model, scaler, label_encoders = load_artifacts()
+        # Encode fitur kategorikal
+        for col in categorical_features:
+            encoder = label_encoders[col]
+            input_df[col] = encoder.transform([input_df[col][0]])
 
-# --- JUDUL DAN DESKRIPSI APLIKASI ---
-st.title("Prediktor Usia Tubuh (Body Age Predictor)")
-st.write("""
-Aplikasi ini memprediksi "usia tubuh" Anda berdasarkan berbagai faktor kesehatan dan gaya hidup.
-Masukkan data Anda di sidebar untuk melihat hasilnya.
-""")
+        # Susun ulang urutan kolom jika model mengharuskan
+        full_features = categorical_features + numeric_features
+        input_df = input_df[full_features]
 
-# --- SIDEBAR UNTUK INPUT PENGGUNA ---
-st.sidebar.header("Masukkan Data Anda")
+        # Scaling
+        input_scaled = scaler.transform(input_df)
 
-def user_input_features():
-    """
-    Fungsi ini membuat semua widget input di sidebar dan mengembalikan
-    input pengguna sebagai sebuah pandas DataFrame.
-    """
-    input_data = {}
-
-    # Mengambil urutan fitur yang benar langsung dari model yang telah dilatih
-    # Ini sangat penting untuk menghindari kesalahan urutan kolom
-    all_features_order = model.feature_names_in_
-
-    # Loop melalui semua fitur sesuai urutan yang benar
-    for feature in all_features_order:
-        # Input untuk fitur kategorikal (menggunakan selectbox dengan istilah asli)
-        if feature in label_encoders:
-            options = list(label_encoders[feature].classes_)
-            input_data[feature] = st.sidebar.selectbox(f"Pilih {feature}", options)
-        # Input untuk fitur numerik
-        else:
-            # Memberikan nilai default yang lebih masuk akal untuk setiap fitur
-            default_value = 0.0
-            if "BP" in feature:
-                default_value = 120.0
-            elif "Height" in feature:
-                default_value = 170.0
-            elif "Weight" in feature:
-                default_value = 70.0
-            elif "BMI" in feature:
-                default_value = 22.0
-            elif "Cholesterol" in feature or "Glucose" in feature:
-                default_value = 150.0
-            elif "Density" in feature or "Sharpness" in feature:
-                default_value = 0.8
-            input_data[feature] = st.sidebar.number_input(f"Masukkan {feature}", value=default_value)
-
-    return pd.DataFrame([input_data])
-
-# --- MENGAMBIL INPUT DARI PENGGUNA ---
-input_df = user_input_features()
-
-# --- MENAMPILKAN DATA INPUT (OPSIONAL) ---
-st.subheader("Data Input Anda")
-st.write(input_df)
-
-# --- TOMBOL PREDIKSI ---
-if st.sidebar.button("Prediksi Usia Tubuh"):
-    if model and scaler and label_encoders:
-        # 1. BUAT SALINAN DATA INPUT UNTUK DIPROSES
-        processed_df = input_df.copy()
-
-        # 2. ENCODE FITUR KATEGORIKAL
-        # Mengubah input string (misal: "Pria") menjadi angka (misal: 1)
-        for feature, le in label_encoders.items():
-            if feature in processed_df.columns:
-                processed_df[feature] = le.transform(processed_df[feature])
-
-        # 3. PASTIKAN URUTAN KOLOM SESUAI DENGAN DATA PELATIHAN
-        # Ini adalah langkah kunci untuk memperbaiki error ketidakcocokan fitur
-        try:
-            ordered_df = processed_df[model.feature_names_in_]
-        except KeyError as e:
-            st.error(f"Terjadi kesalahan urutan kolom: {e}. Pastikan semua fitur yang dibutuhkan ada.")
-            st.stop()
-
-        # 4. SKALAKAN SEMUA FITUR MENGGUNAKAN SCALER YANG TELAH DISIMPAN
-        # Scaler diterapkan pada seluruh DataFrame, persis seperti di notebook
-        scaled_input = scaler.transform(ordered_df)
-
-        # 5. BUAT PREDIKSI
-        prediction = model.predict(scaled_input)
-
-        # 6. TAMPILKAN HASIL PREDIKSI
-        st.subheader("Hasil Prediksi")
-        st.success(f"Prediksi usia tubuh Anda adalah: **{int(prediction[0])} tahun**")
-    else:
-        st.warning("Model tidak dapat dimuat. Prediksi tidak dapat dilakukan.")
+        # Prediksi
+        prediction = model.predict(input_scaled)[0]
+        st.success(f"🎉 Prediksi usia kamu adalah sekitar **{prediction:.1f} tahun**")
+    except Exception as e:
+        st.error(f"Gagal melakukan prediksi: {e}")
