@@ -47,7 +47,7 @@ def user_input_features():
     # Kiri: Teks untuk Tampilan (User-Friendly) | Kanan: Teks untuk Model (Sesuai Training)
     
     gender_map = {'Wanita': 'Female', 'Pria': 'Male'}
-    smoking_map = {'Masih Merokok': 'Current', 'Mantan Perokok': 'Former', 'Tidak Pernah': 'Never'}
+    smoking_map = {'Masih Merokok': 'Current smoker', 'Mantan Perokok': 'Former smoker', 'Tidak Pernah': 'Never smoker'}
     sleep_map = {'Normal (7-8 jam)': 'Normal', 'Insomnia (Sulit Tidur)': 'Insomnia', 'Berlebihan (>9 jam)': 'Excessive'}
     diet_map = {'Seimbang': 'Balanced', 'Tinggi Lemak': 'High-fat', 'Rendah Karbohidrat': 'Low-carb', 'Vegetarian': 'Vegetarian'}
     activity_map = {'Aktivitas Tinggi': 'High', 'Aktivitas Sedang': 'Moderate', 'Aktivitas Rendah': 'Low'}
