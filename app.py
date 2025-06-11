@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
 
 # --- FUNGSI UNTUK MEMUAT MODEL DAN ARTIFAK LAINNYA ---
@@ -17,9 +17,10 @@ def load_artifacts():
         with open('scaler.pkl', 'rb') as scaler_file:
             scaler = pickle.load(scaler_file)
         with open('label_encoders_dict.pkl', 'rb') as le_file:
+            # Pastikan file ini berisi dictionary of encoders yang benar
             label_encoders = pickle.load(le_file)
     except FileNotFoundError:
-        st.error("File model atau artefak tidak ditemukan. Pastikan file 'best_random_forest_model.pkl', 'scaler.pkl', dan 'label_encoders_dict.pkl' berada di direktori yang sama dengan app.py.")
+        st.error("File model atau artefak tidak ditemukan. Pastikan file 'best_random_forest_model.pkl', 'scaler.pkl', dan 'label_encoders_dict.pkl' berada di direktori yang sama.")
         return None, None, None
     return model, scaler, label_encoders
 
@@ -39,26 +40,24 @@ st.sidebar.header("📝 Masukkan Data Anda")
 def user_input_features():
     """
     Fungsi ini membuat semua widget input di sidebar dan mengembalikan input pengguna
-    sebagai sebuah pandas DataFrame dengan label yang lebih user-friendly.
+    sebagai sebuah pandas DataFrame.
     """
-    # PENTING: Sesuaikan nilai di KANAN (e.g., 'Female', 'Male') agar SAMA PERSIS
-    # dengan nilai yang digunakan saat melatih model Anda.
-    # Nilai di KIRI adalah teks yang akan tampil di aplikasi.
+    # ==============================================================================
+    # --- PEMETAAN LABEL (DISESUAIKAN DENGAN INFO DARI ANDA) ---
+    # Kiri: Teks untuk Tampilan (User-Friendly) | Kanan: Teks untuk Model (Sesuai Training)
     
-    # --- Pemetaan Label untuk Tampilan yang Lebih Baik ---
     gender_map = {'Wanita': 'Female', 'Pria': 'Male'}
-    smoking_map = {'Tidak Pernah': 'Non-smoker', 'Mantan Perokok': 'Former smoker', 'Masih Merokok': 'Current smoker'}
-    activity_map = {'Jarang (Sedentary)': 'Sedentary', 'Cukup Aktif (Moderate)': 'Moderate', 'Sangat Aktif (Active)': 'Active'}
-    diet_map = {'Seimbang': 'Balanced', 'Kurang Sehat': 'Unhealthy', 'Sehat': 'Healthy'}
-    sleep_map = {'Baik (7-9 jam)': 'Good', 'Cukup (5-6 jam)': 'Fair', 'Kurang (<5 jam)': 'Poor'}
-    income_map = {'Rendah': 'Low', 'Menengah': 'Middle', 'Tinggi': 'High'}
-    mental_health_map = {'Baik': 'Good', 'Cukup': 'Fair', 'Buruk': 'Poor'}
+    smoking_map = {'Masih Merokok': 'Current', 'Mantan Perokok': 'Former', 'Tidak Pernah': 'Never'}
+    sleep_map = {'Normal (7-8 jam)': 'Normal', 'Insomnia (Sulit Tidur)': 'Insomnia', 'Berlebihan (>9 jam)': 'Excessive'}
+    diet_map = {'Seimbang': 'Balanced', 'Tinggi Lemak': 'High-fat', 'Rendah Karbohidrat': 'Low-carb', 'Vegetarian': 'Vegetarian'}
+    activity_map = {'Aktivitas Tinggi': 'High', 'Aktivitas Sedang': 'Moderate', 'Aktivitas Rendah': 'Low'}
+    income_map = {'Tinggi': 'High', 'Menengah': 'Medium', 'Rendah': 'Low'}
+    mental_health_map = {'Sangat Baik': 'Excellent', 'Baik': 'Good', 'Cukup': 'Fair', 'Buruk': 'Poor'}
+    # ==============================================================================
 
     # --- Membuat Widget Input ---
-    # Menggunakan st.radio untuk pilihan biner/sedikit agar lebih cepat
     gender_display = st.sidebar.radio("Jenis Kelamin", options=list(gender_map.keys()))
     
-    # Input numerik
     height_cm = st.sidebar.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=250.0, value=170.0)
     weight_kg = st.sidebar.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=70.0)
     systolic_bp = st.sidebar.number_input("Tekanan Darah Sistolik", min_value=80, max_value=200, value=120, help="Angka atas pada pengukuran tekanan darah.")
@@ -74,16 +73,15 @@ def user_input_features():
     pollution = st.sidebar.slider("Paparan Polusi (0-10)", min_value=0.0, max_value=10.0, value=4.0)
     sun_exposure = st.sidebar.number_input("Paparan Matahari (jam/minggu)", min_value=0.0, max_value=40.0, value=5.0)
 
-    # Input kategori menggunakan selectbox dengan label deskriptif
+    # Input kategori dengan urutan yang logis dan label deskriptif
+    activity_display = st.sidebar.selectbox("Tingkat Aktivitas Fisik", options=['Aktivitas Rendah', 'Aktivitas Sedang', 'Aktivitas Tinggi'])
+    diet_display = st.sidebar.selectbox("Pola Makan Utama", options=list(diet_map.keys()))
     smoking_display = st.sidebar.selectbox("Status Merokok", options=list(smoking_map.keys()))
-    activity_display = st.sidebar.selectbox("Tingkat Aktivitas Fisik", options=list(activity_map.keys()))
-    diet_display = st.sidebar.selectbox("Kualitas Diet/Pola Makan", options=list(diet_map.keys()))
-    sleep_display = st.sidebar.selectbox("Kualitas Pola Tidur", options=list(sleep_map.keys()))
+    sleep_display = st.sidebar.selectbox("Pola Tidur", options=list(sleep_map.keys()))
     mental_health_display = st.sidebar.selectbox("Status Kesehatan Mental", options=list(mental_health_map.keys()))
-    income_display = st.sidebar.selectbox("Tingkat Pendapatan", options=list(income_map.keys()))
+    income_display = st.sidebar.selectbox("Tingkat Pendapatan", options=['Rendah', 'Menengah', 'Tinggi'])
     
     # --- Mengumpulkan Data ke Dictionary ---
-    # Menggunakan pemetaan untuk mengubah input display kembali ke nilai asli untuk model
     data = {
         'Gender': gender_map[gender_display],
         'Height (cm)': height_cm,
@@ -108,7 +106,6 @@ def user_input_features():
         'Diastolic_BP': diastolic_bp
     }
     
-    # Mengonversi dictionary ke pandas DataFrame
     features = pd.DataFrame(data, index=[0])
     return features
 
@@ -116,42 +113,31 @@ def user_input_features():
 input_df = user_input_features()
 
 # --- MENAMPILKAN INPUT PENGGUNA (OPSIONAL) ---
-# Menampilkan nilai asli yang akan diproses, bukan nilai display
-st.subheader("Data Input Anda (Nilai Asli)")
+st.subheader("Data Input Anda (Nilai Asli untuk Model)")
 st.write(input_df)
 
 # --- TOMBOL PREDIKSI ---
 if st.button("Prediksi Usia Tubuh", type="primary"):
     if model is not None and scaler is not None and label_encoders is not None:
         try:
-            # 1. PRA-PEMROSESAN INPUT
             processed_df = input_df.copy()
             
-            # Mengkodekan fitur kategori
-            for feature in label_encoders:
-                # Memastikan kolom ada di dataframe sebelum diproses
+            for feature, le in label_encoders.items():
                 if feature in processed_df.columns:
-                    le = label_encoders[feature]
-                    # Mengatasi kemungkinan nilai baru yang tidak ada saat training
-                    # Dengan cara mengambil nilai dari map yang sudah pasti ada di classes_
                     processed_df[feature] = le.transform(processed_df[feature])
             
-            # 2. MEMASTIKAN URUTAN KOLOM SESUAI DENGAN MODEL
             model_columns = model.feature_names_in_
             processed_df = processed_df[model_columns]
             
-            # 3. MENSKALAKAN FITUR
             scaled_features = scaler.transform(processed_df)
             
-            # 4. MEMBUAT PREDIKSI
             prediction = model.predict(scaled_features)
             
-            # 5. MENAMPILKAN HASIL
             st.subheader("✨ Hasil Prediksi ✨")
             st.success(f"Prediksi Usia Tubuh Anda adalah: **{int(prediction[0])} tahun**")
             
         except Exception as e:
             st.error(f"Terjadi kesalahan saat prediksi: {e}")
-            st.warning("Pastikan nilai pada pemetaan label (map) di dalam kode sesuai dengan data training.")
+            st.warning("Pastikan file 'label_encoders_dict.pkl' Anda dibuat dengan metode yang benar (satu encoder per fitur).")
     else:
         st.warning("Model tidak dapat dimuat. Prediksi tidak dapat dilakukan.")
