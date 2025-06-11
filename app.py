@@ -2,14 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-# --- FUNGSI UNTUK MEMUAT MODEL DAN ARTIFAK LAINNYA ---
+# --- FUNGSI UNTUK MEMUAT ARTIFAK MODEL ---
+# @st.cache_resource digunakan agar Streamlit tidak perlu memuat ulang file pada setiap interaksi.
 @st.cache_resource
 def load_artifacts():
     """
-    Fungsi ini memuat model, scaler, dan label encoder yang telah disimpan.
+    Fungsi ini memuat model regresi, scaler, dan dictionary label encoder 
+    yang telah disimpan dari file .pkl.
     """
     try:
         with open('best_random_forest_model.pkl', 'rb') as model_file:
@@ -17,14 +19,15 @@ def load_artifacts():
         with open('scaler.pkl', 'rb') as scaler_file:
             scaler = pickle.load(scaler_file)
         with open('label_encoders_dict.pkl', 'rb') as le_file:
-            # Pastikan file ini berisi dictionary of encoders yang benar
+            # Memuat dictionary yang berisi encoder untuk setiap fitur kategori.
             label_encoders = pickle.load(le_file)
-    except FileNotFoundError:
-        st.error("File model atau artefak tidak ditemukan. Pastikan file 'best_random_forest_model.pkl', 'scaler.pkl', dan 'label_encoders_dict.pkl' berada di direktori yang sama.")
+    except FileNotFoundError as e:
+        st.error(f"Error: File artefak tidak ditemukan. Pastikan 'best_random_forest_model.pkl', 'scaler.pkl', dan 'label_encoders_dict.pkl' berada di direktori yang sama dengan `app.py`.")
+        st.error(e)
         return None, None, None
     return model, scaler, label_encoders
 
-# --- MEMUAT MODEL ---
+# --- MEMUAT SEMUA ARTIFAK SAAT APLIKASI DIMULAI ---
 model, scaler, label_encoders = load_artifacts()
 
 # --- JUDUL DAN DESKRIPSI APLIKASI ---
@@ -43,7 +46,7 @@ def user_input_features():
     sebagai sebuah pandas DataFrame.
     """
     # ==============================================================================
-    # --- PEMETAAN LABEL (DISESUAIKAN DENGAN INFO DARI ANDA) ---
+    # --- PEMETAAN LABEL (DISESUAIKAN DENGAN INFO DARI NOTEBOOK ANDA) ---
     # Kiri: Teks untuk Tampilan (User-Friendly) | Kanan: Teks untuk Model (Sesuai Training)
     
     gender_map = {'Wanita': 'Female', 'Pria': 'Male'}
@@ -66,7 +69,7 @@ def user_input_features():
     bmi = st.sidebar.number_input("Indeks Massa Tubuh (BMI)", min_value=15.0, max_value=50.0, value=22.0)
     glucose = st.sidebar.number_input("Glukosa Darah (mg/dL)", min_value=50.0, max_value=250.0, value=90.0)
     bone_density = st.sidebar.number_input("Kepadatan Tulang (g/cm²)", min_value=0.1, max_value=2.0, value=0.8, step=0.1)
-    vision = st.sidebar.number_input("Ketajaman Penglihatan (0-1)", min_value=0.0, max_value=1.0, value=0.8, step=0.1)
+    vision = st.sidebar.number_input("Ketajaman Penglihatan (0-1)", min_value=0.0, max_value=1.0, value=0.8, step=0.1, help="Skala 0 (buram) hingga 1 (sempurna).")
     hearing = st.sidebar.number_input("Kemampuan Pendengaran (dB)", min_value=10.0, max_value=100.0, value=30.0)
     cognitive = st.sidebar.number_input("Fungsi Kognitif (0-100)", min_value=0.0, max_value=100.0, value=80.0)
     stress = st.sidebar.slider("Tingkat Stres (0-10)", min_value=0.0, max_value=10.0, value=3.0)
@@ -82,6 +85,7 @@ def user_input_features():
     income_display = st.sidebar.selectbox("Tingkat Pendapatan", options=['Rendah', 'Menengah', 'Tinggi'])
     
     # --- Mengumpulkan Data ke Dictionary ---
+    # Menggunakan pemetaan untuk mengubah input display kembali ke nilai asli untuk model
     data = {
         'Gender': gender_map[gender_display],
         'Height (cm)': height_cm,
@@ -120,24 +124,29 @@ st.write(input_df)
 if st.button("Prediksi Usia Tubuh", type="primary"):
     if model is not None and scaler is not None and label_encoders is not None:
         try:
+            # 1. PRA-PEMROSESAN INPUT
             processed_df = input_df.copy()
             
+            # Mengkodekan fitur kategori dengan encoder yang sesuai
             for feature, le in label_encoders.items():
                 if feature in processed_df.columns:
+                    # Mengubah nilai teks ke numerik (e.g., 'Male' -> 1)
                     processed_df[feature] = le.transform(processed_df[feature])
             
-            model_columns = model.feature_names_in_
-            processed_df = processed_df[model_columns]
+            # 2. MENSKALAKAN FITUR NUMERIK
+            # Menggunakan scaler yang sama dari notebook
+            # Pastikan urutan kolom sama dengan saat training scaler
+            scaled_df = scaler.transform(processed_df)
             
-            scaled_features = scaler.transform(processed_df)
+            # 3. MEMBUAT PREDIKSI
+            prediction = model.predict(scaled_df)
             
-            prediction = model.predict(scaled_features)
-            
+            # 4. MENAMPILKAN HASIL
             st.subheader("✨ Hasil Prediksi ✨")
             st.success(f"Prediksi Usia Tubuh Anda adalah: **{int(prediction[0])} tahun**")
             
         except Exception as e:
             st.error(f"Terjadi kesalahan saat prediksi: {e}")
-            st.warning("Pastikan file 'label_encoders_dict.pkl' Anda dibuat dengan metode yang benar (satu encoder per fitur).")
+            st.warning("Pastikan semua file .pkl (model, scaler, label_encoders_dict) sudah yang paling baru dan dibuat dengan metode yang benar.")
     else:
-        st.warning("Model tidak dapat dimuat. Prediksi tidak dapat dilakukan.")
+        st.warning("Model tidak dapat dimuat. Silakan periksa kembali file artefak.")
